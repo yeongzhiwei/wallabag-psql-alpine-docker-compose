@@ -1,0 +1,59 @@
+version: "3"
+  
+services:
+    traefik:
+        image: traefik:1.7.11-alpine
+        restart: always
+        volumes:
+        - /var/run/docker.sock:/var/run/docker.sock
+        - ./traefik.toml:/traefik.toml
+        - ./acme.json:/acme.json
+        ports:
+        - 80:80
+        - 443:443
+        networks:
+        - web
+
+    wallabag:
+        image: wallabag/wallabag
+        restart: always
+        environment:
+          - POSTGRES_USER=<postgres-user>
+          - POSTGRES_PASSWORD=<postgres-password>
+          - SYMFONY__ENV__DATABASE_DRIVER=pdo_pgsql
+          - SYMFONY__ENV__DATABASE_DRIVER_CLASS=Wallabag\CoreBundle\Doctrine\DBAL\Driver\CustomPostgreSQLDriver
+          - SYMFONY__ENV__DATABASE_HOST=wallabag-db
+          - SYMFONY__ENV__DATABASE_PORT=5432
+          - SYMFONY__ENV__DATABASE_NAME=wallabag
+          - SYMFONY__ENV__DATABASE_USER=wallabag
+          - SYMFONY__ENV__DATABASE_PASSWORD=<database-password>
+          - SYMFONY__ENV__DOMAIN_NAME=https://my.domain.com
+          - SYMFONY__ENV__FOSUSER_REGISTRATION=false
+        labels:
+        - "traefik.docker.network=web"
+        - "traefik.enable=true"
+        - "traefik.basic.frontend.rule=Host:my.domain.com
+        - "traefik.protocol=http"
+        - "traefik.frontend.entryPoints=http,https"
+        - "traefik.port=80"
+        expose:
+        - "80"
+        networks:
+        - web
+        - wallabag_net
+
+    wallabag-db:
+        image: postgres:11.2-alpine
+        restart: always
+        volumes:
+        - ./psdata:/var/lib/postgresql/data
+        environment:
+        - POSTGRES_USER=<postgres-user>
+        - POSTGRES_PASSWORD=<postgres-password>
+        networks:
+        - wallabag_net
+
+networks:
+    web:
+        external: true
+    wallabag_net:
